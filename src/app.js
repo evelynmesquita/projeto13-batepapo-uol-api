@@ -2,7 +2,8 @@ import express from "express";
 import cors from "cors"
 import { MongoClient } from "mongodb"
 import dotenv from "dotenv"
-const Joi = require('joi');
+import Joi from 'joi';
+import dayjs from 'dayjs';
 
 
 const app = express();
@@ -18,18 +19,60 @@ mongoClient.connect()
     .catch((err) => console.log(err.message))
 
 
-app.post("/participants", (req, res) => {
-    const { name } = req.body;
+app.post("/participants", async (req, res) => {
 
+    const participants = db.collection('participants')
+    const messages = db.collection('messages');
+
+    try {
+        const schema = Joi.object({
+            name: Joi.string().required()
+        });
+
+        const { error, value } = schema.validate(req.body);
+        if (error) {
+            return res.status(422).send(error.details[0].message);
+        }
+
+        const { name } = value;
+
+        const existingParticipant = await participants.findOne({ name });
+        if (existingParticipant) {
+            return res.status(409).send("'Name already in use'");
+        }
+
+        const newParticipant = {
+            name,
+            lastStatus: Date.now()
+        };
+
+        const result = await participants.insertOne(newParticipant);
+
+        const message = {
+            from: name,
+            to: 'Todos',
+            text: 'entra na sala...',
+            type: 'status',
+            time: dayjs().format('HH:mm:ss')
+        };
+        
+        await messages.insertOne(message)
+
+        return res.status(201).send();
+
+    } catch (err) {
+        console.error(err);
+        return res.status(500).send('Internal server error');
+    }
 })
 
-app.get("/participants", (req,res) => {
+app.get("/participants", (req, res) => {
 
 })
 
 app.post("/messages", (req, res) => {
 
-}) 
+})
 
 app.get("/messages", (req, res) => {
 
