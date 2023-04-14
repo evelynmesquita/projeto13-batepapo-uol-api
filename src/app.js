@@ -36,7 +36,7 @@ app.post("/participants", async (req, res) => {
 
         const existingParticipant = await participantsCollection.findOne({ name });
         if (existingParticipant) {
-            return res.status(409).send("'Name already in use'");
+            return res.status(409).send("Name already in use");
         }
 
         const newParticipant = {
@@ -74,14 +74,17 @@ app.post("/messages", async (req, res) => {
     const messagesCollection = db.collection('messages');
     const participantsCollection = db.collection('participants')
 
-    const schemaMessage = Joi.object({
-        to: Joi.string().required(),
-        text: Joi.string().required(),
-        type: Joi.string().valid("message", "private_message").required(),
-    });
-
     try {
+
         const { to, text, type } = req.body;
+        const from = req.header("User");
+
+        const schemaMessage = Joi.object({
+            to: Joi.string().required(),
+            text: Joi.string().required(),
+            type: Joi.string().valid("message", "private_message").required(),
+        });
+
         const { error } = schemaMessage.validate({ to, text, type });
 
         if (error) {
@@ -93,15 +96,16 @@ app.post("/messages", async (req, res) => {
         });
 
         if (!participantExists) {
-            return res.status(422).send("Remetente não encontrado");
+            return res.status(422).send("Sender not found");
         }
 
+        const time = dayjs().format("HH:mm:ss");
         const message = {
             from,
             to,
             text,
             type,
-            time: dayjs().format("HH:mm:ss"),
+            time,
         }
 
         await messagesCollection.insertOne(message)
@@ -109,10 +113,8 @@ app.post("/messages", async (req, res) => {
 
     } catch (err) {
         console.log(err);
-        return res.sendStatus(500);
-
+        return res.status(500).send('Internal server error');
     }
-
 })
 
 app.get("/messages", (req, res) => {
