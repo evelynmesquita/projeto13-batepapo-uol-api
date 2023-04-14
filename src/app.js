@@ -5,7 +5,6 @@ import dotenv from "dotenv"
 import Joi from 'joi';
 import dayjs from 'dayjs';
 
-
 const app = express();
 
 app.use(express.json());
@@ -18,11 +17,10 @@ mongoClient.connect()
     .then(() => db = mongoClient.db())
     .catch((err) => console.log(err.message))
 
-
 app.post("/participants", async (req, res) => {
 
-    const participants = db.collection('participants')
-    const messages = db.collection('messages');
+    const participantsCollection = db.collection('participants')
+    const messagesCollection = db.collection('messages');
 
     try {
         const schema = Joi.object({
@@ -36,7 +34,7 @@ app.post("/participants", async (req, res) => {
 
         const { name } = value;
 
-        const existingParticipant = await participants.findOne({ name });
+        const existingParticipant = await participantsCollection.findOne({ name });
         if (existingParticipant) {
             return res.status(409).send("'Name already in use'");
         }
@@ -46,7 +44,7 @@ app.post("/participants", async (req, res) => {
             lastStatus: Date.now()
         };
 
-        const result = await participants.insertOne(newParticipant);
+        const result = await participantsCollection.insertOne(newParticipant);
 
         const message = {
             from: name,
@@ -56,7 +54,7 @@ app.post("/participants", async (req, res) => {
             time: dayjs().format('HH:mm:ss')
         };
 
-        await messages.insertOne(message)
+        await messagesCollection.insertOne(message)
 
         return res.status(201).send();
 
@@ -67,11 +65,53 @@ app.post("/participants", async (req, res) => {
 })
 
 app.get("/participants", async (req, res) => {
-    const participants = await db.collection('participants').find().toArray();
-    return res.send(participants);
+    const participantsCollection = await db.collection('participants').find().toArray();
+    return res.send(participantsCollection);
 })
 
-app.post("/messages", (req, res) => {
+app.post("/messages", async (req, res) => {
+
+    const messagesCollection = db.collection('messages');
+    const participantsCollection = db.collection('participants')
+
+    const schemaMessage = Joi.object({
+        to: Joi.string().required(),
+        text: Joi.string().required(),
+        type: Joi.string().valid("message", "private_message").required(),
+    });
+
+    try {
+        const { to, text, type } = req.body;
+        const { error } = schemaMessage.validate({ to, text, type });
+
+        if (error) {
+            return res.status(422).send(error.details[0].message)
+        }
+
+        const participantExists = await participantsCollection.findOne({
+            name: from,
+        });
+
+        if (!participantExists) {
+            return res.status(422).send("Remetente não encontrado");
+        }
+
+        const message = {
+            from,
+            to,
+            text,
+            type,
+            time: dayjs().format("HH:mm:ss"),
+        }
+
+        await messagesCollection.insertOne(message)
+        return res.status(201).send();
+
+    } catch (err) {
+        console.log(err);
+        return res.sendStatus(500);
+
+    }
 
 })
 
