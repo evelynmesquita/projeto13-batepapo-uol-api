@@ -55,7 +55,7 @@ app.post("/participants", async (req, res) => {
             type: 'status',
             time: dayjs().format('HH:mm:ss')
         };
-        
+
         await messages.insertOne(message)
 
         return res.status(201).send();
@@ -66,8 +66,9 @@ app.post("/participants", async (req, res) => {
     }
 })
 
-app.get("/participants", (req, res) => {
-
+app.get("/participants", async (req, res) => {
+    const participants = await db.collection('participants').find().toArray();
+    return res.send(participants);
 })
 
 app.post("/messages", (req, res) => {
