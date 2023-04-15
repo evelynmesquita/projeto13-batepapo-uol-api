@@ -115,24 +115,28 @@ app.post("/messages", async (req, res) => {
     }
 })
 
-app.get('/messages', async (req, res) => {
-    const limit = parseInt(req.query.limit);
 
-    if (limit && (isNaN(limit) || limit <= 0)) {
-        return res.status(422).send('Invalid limit parameter');
+app.get('/messages', async (req, res) => {
+    const messagesCollection = db.collection('messages');
+    const { limit } = req.query;
+
+    if (limit && (isNaN(parseInt(limit)) || parseInt(limit) <= 0)) {
+        return res.status(422).send({ error: 'Limit must be a positive number' });
     }
 
-    const user = req.header('User');
-    const messagesCollection = await db.collection('messages').find({
-        $or: [
-            { to: user },
-            { from: user },
-            { to: 'Todos' },
-            { to: null }
-        ]
-    }).sort({ createdAt: -1 }).limit(limit).toArray();
+    const messages = await messagesCollection
+        .find({
+            $or: [
+                { to: 'Todos' },
+                { from: req.headers.user },
+                { to: req.headers.user },
+            ],
+        })
+        .sort({ time: -1 })
+        .limit(limit ? parseInt(limit) : 0)
+        .toArray();
 
-    res.send(messagesCollection);
+    res.send(messages.reverse());
 });
 
 app.post('/status', (req, res) => {
