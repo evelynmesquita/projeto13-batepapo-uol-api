@@ -18,8 +18,7 @@ mongoClient.connect()
     .catch((err) => console.log(err.message))
 
 app.post("/participants", async (req, res) => {
-
-    const participantsCollection = db.collection('participants')
+    const participantsCollection = db.collection('participants');
     const messagesCollection = db.collection('messages');
 
     try {
@@ -54,7 +53,7 @@ app.post("/participants", async (req, res) => {
             time: dayjs().format('HH:mm:ss')
         };
 
-        await messagesCollection.insertOne(message)
+        await messagesCollection.insertOne(message);
 
         return res.status(201).send();
 
@@ -72,10 +71,9 @@ app.get("/participants", async (req, res) => {
 app.post("/messages", async (req, res) => {
 
     const messagesCollection = db.collection('messages');
-    const participantsCollection = db.collection('participants')
+    const participantsCollection = db.collection('participants');
 
     try {
-
         const { to, text, type } = req.body;
         const from = req.header("User");
 
@@ -88,7 +86,7 @@ app.post("/messages", async (req, res) => {
         const { error } = schemaMessage.validate({ to, text, type });
 
         if (error) {
-            return res.status(422).send(error.details[0].message)
+            return res.status(422).send(error.details[0].message);
         }
 
         const participantExists = await participantsCollection.findOne({
@@ -117,13 +115,30 @@ app.post("/messages", async (req, res) => {
     }
 })
 
-app.get("/messages", (req, res) => {
+app.get('/messages', async (req, res) => {
+    const limit = parseInt(req.query.limit);
 
-})
+    if (limit && (isNaN(limit) || limit <= 0)) {
+        return res.status(422).send('Invalid limit parameter');
+    }
 
-app.post("/status", (req, res) => {
+    const user = req.header('User');
+    const messagesCollection = await db.collection('messages').find({
+        $or: [
+            { to: user },
+            { from: user },
+            { to: 'Todos' },
+            { to: null }
+        ]
+    }).sort({ createdAt: -1 }).limit(limit).toArray();
 
-})
+    res.send(messagesCollection);
+});
+
+app.post('/status', (req, res) => {
+ 
+});
+
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`))
