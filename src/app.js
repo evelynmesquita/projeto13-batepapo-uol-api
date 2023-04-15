@@ -136,7 +136,30 @@ app.get('/messages', async (req, res) => {
 });
 
 app.post('/status', (req, res) => {
- 
+    const schema = Joi.object({
+        User: Joi.string().required()
+    });
+
+    const { error } = schema.validate(req.headers);
+    if (error) {
+        return res.status(400).send(error.details[0].message);
+    }
+
+    const user = req.headers.User;
+
+    const collection = db.collection('participants');
+    collection.findOneAndUpdate(
+        { name: user },
+        { $set: { lastStatus: dayjs().unix() } }
+    ).then(result => {
+        if (!result.value) {
+            return res.status(404).end();
+        }
+        return res.status(200).end();
+    }).catch(err => {
+        console.error('Error updating participant lastStatus', err);
+        return res.status(500).end();
+    });
 });
 
 
