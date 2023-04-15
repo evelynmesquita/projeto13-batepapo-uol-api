@@ -162,6 +162,28 @@ app.post('/status', (req, res) => {
     });
 });
 
+setInterval(async () => {
+    const participantsCollection = db.collection('participants');
+    const messagesCollection = db.collection('messages');
+
+    const cutOffTime = dayjs().subtract(10, 'seconds').valueOf();
+
+    const inactiveParticipants = await participantsCollection.find({ lastStatus: { $lt: cutOffTime } }).toArray();
+
+    inactiveParticipants.forEach(async (participant) => {
+        const message = {
+            from: participant.name,
+            to: 'Todos',
+            text: 'sai da sala...',
+            type: 'status',
+            time: dayjs().format('HH:mm:ss')
+        };
+
+        await messagesCollection.insertOne(message);
+        await participantsCollection.deleteOne({ _id: participant._id });
+    });
+
+}, 15000);
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`))
