@@ -139,31 +139,29 @@ app.get('/messages', async (req, res) => {
     res.send(messages.reverse());
 });
 
-app.post('/status', (req, res) => {
-    const schema = Joi.object({
-        User: Joi.string().required()
-    });
-
-    const { error } = schema.validate(req.headers);
-    if (error) {
-        return res.status(400).send(error.details[0].message);
+app.post("/status", async (req, res) => {
+    const participantsCollection = db.collection('participants');
+    const user = req.header("User");
+    
+    if (!user) {
+        return res.status(404).send();
     }
 
-    const user = req.headers.User;
+    const participant = await participantsCollection.findOne({ name: user });
+    if (!participant) {
+        return res.status(404).send();
+    }
 
-    const collection = db.collection('participants');
-    collection.findOneAndUpdate(
-        { name: user },
-        { $set: { lastStatus: dayjs().unix() } }
-    ).then(result => {
-        if (!result.value) {
-            return res.status(404).end();
-        }
-        return res.status(200).end();
-    }).catch(err => {
-        console.error('Error updating participant lastStatus', err);
-        return res.status(500).end();
-    });
+    try {
+        await participantsCollection.updateOne(
+            { name: user },
+            { $set: { lastStatus: Date.now() } }
+        );
+        return res.send();
+    } catch (error) {
+        console.error(error);
+        return res.status(500).send();
+    }
 });
 
 setInterval(async () => {
